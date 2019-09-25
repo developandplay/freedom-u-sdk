@@ -2,8 +2,9 @@
 # a toolchain install tree that was built via other means.
 RISCV ?= $(CURDIR)/toolchain
 PATH := $(RISCV)/bin:$(PATH)
-ISA ?= rv64imafdc
-ABI ?= lp64d
+ISA ?= rv64imafd
+BBL_ISA ?= rv64ia
+ABI ?= lp64
 
 srcdir := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 srcdir := $(srcdir:/=)
@@ -36,6 +37,8 @@ pk_wrkdir := $(wrkdir)/riscv-pk
 bbl := $(pk_wrkdir)/bbl
 bin := $(wrkdir)/bbl.bin
 hex := $(wrkdir)/bbl.hex
+dts := $(pk_srcdir)/device.dts
+dtb := $(pk_srcdir)/machine/device.dtb
 
 fesvr_srcdir := $(srcdir)/riscv-fesvr
 fesvr_wrkdir := $(wrkdir)/riscv-fesvr
@@ -132,7 +135,7 @@ ifeq ($(ISA),$(filter rv32%,$(ISA)))
 endif
 
 $(vmlinux): $(linux_srcdir) $(linux_wrkdir)/.config $(buildroot_initramfs_sysroot_stamp)
-	$(MAKE) -C $< O=$(linux_wrkdir) \
+	$(MAKE) -j -C $< O=$(linux_wrkdir) \
 		CONFIG_INITRAMFS_SOURCE="$(confdir)/initramfs.txt $(buildroot_initramfs_sysroot)" \
 		CONFIG_INITRAMFS_ROOT_UID=$(shell id -u) \
 		CONFIG_INITRAMFS_ROOT_GID=$(shell id -g) \
@@ -149,15 +152,16 @@ linux-menuconfig: $(linux_wrkdir)/.config
 	$(MAKE) -C $(linux_srcdir) O=$(dir $<) ARCH=riscv savedefconfig
 	cp $(dir $<)/defconfig conf/linux_defconfig
 
-$(bbl): $(pk_srcdir) $(vmlinux_stripped)
+$(dtb): $(pk_srcdir)
+	dtc $(dts) -O dtb > $@
+
+$(bbl): $(pk_srcdir) $(vmlinux_stripped) $(dtb)
 	rm -rf $(pk_wrkdir)
 	mkdir -p $(pk_wrkdir)
 	cd $(pk_wrkdir) && $</configure \
 		--host=$(target) \
-		--with-payload=$(vmlinux_stripped) \
-		--enable-logo \
-		--with-logo=$(abspath conf/sifive_logo.txt)
-	CFLAGS="-mabi=$(ABI) -march=$(ISA)" $(MAKE) -C $(pk_wrkdir)
+		--with-payload=$(vmlinux_stripped)
+	CFLAGS="-mabi=$(ABI) -march=$(BBL_ISA)" $(MAKE) -C $(pk_wrkdir)
 
 $(bin): $(bbl)
 	$(target)-objcopy -S -O binary --change-addresses -0x80000000 $< $@
@@ -205,13 +209,13 @@ buildroot_initramfs_sysroot: $(buildroot_initramfs_sysroot)
 vmlinux: $(vmlinux)
 bbl: $(bbl)
 
-.PHONY: clean
-clean:
+.PHONY: bleach
+bleach:
 	rm -rf -- $(wrkdir) $(toolchain_dest)
 
 .PHONY: sim
 sim: $(spike) $(bbl)
-	$(spike) --isa=$(ISA) -p4 $(bbl)
+	$(spike) -l --isa=$(BBL_ISA) -p1 $(bbl) 2> $(srcdir)/bbl.spike
 
 .PHONY: qemu
 qemu: $(qemu) $(bbl) $(rootfs)
