@@ -6,6 +6,8 @@ ISA ?= rv64imafd
 BBL_ISA ?= rv64ia
 ABI ?= lp64
 
+saveterm := $(shell stty -g)
+
 srcdir := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 srcdir := $(srcdir:/=)
 confdir := $(srcdir)/conf
@@ -215,7 +217,9 @@ bleach:
 
 .PHONY: sim
 sim: $(spike) $(bbl)
-	$(spike) -l --isa=$(BBL_ISA) -p1 $(bbl) 2> $(srcdir)/bbl.spike
+	stty raw isig -echo;
+	$(spike) --isa=$(BBL_ISA) -p1 $(bbl) 2> $(srcdir)/bbl.spike;
+	stty $(saveterm)
 
 .PHONY: qemu
 qemu: $(qemu) $(bbl) $(rootfs)
