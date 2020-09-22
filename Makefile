@@ -39,7 +39,11 @@ pk_wrkdir := $(wrkdir)/riscv-pk
 bbl := $(pk_wrkdir)/bbl
 bin := $(wrkdir)/bbl.bin
 hex := $(wrkdir)/bbl.hex
-dts := $(pk_srcdir)/device.dts
+ifdef LITEX_MODE
+  dts := $(pk_srcdir)/device_litex.dts
+else
+  dts := $(pk_srcdir)/device.dts
+endif
 dtb := $(pk_srcdir)/machine/device.dtb
 
 fesvr_srcdir := $(srcdir)/riscv-fesvr
@@ -163,7 +167,7 @@ $(bbl): $(pk_srcdir) $(vmlinux_stripped) $(dtb)
 	cd $(pk_wrkdir) && $</configure \
 		--host=$(target) \
 		--with-payload=$(vmlinux_stripped)
-	CFLAGS="-mabi=$(ABI) -march=$(BBL_ISA)" $(MAKE) -C $(pk_wrkdir)
+	CFLAGS="-mabi=$(ABI) -march=$(BBL_ISA) $(LITEX_MODE)" $(MAKE) -C $(pk_wrkdir)
 
 $(bin): $(bbl)
 	$(target)-objcopy -S -O binary --change-addresses -0x80000000 $< $@
