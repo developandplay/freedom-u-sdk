@@ -3,8 +3,8 @@
 RISCV ?= $(CURDIR)/toolchain
 PATH := $(RISCV)/bin:$(PATH)
 ISA ?= rv64imafd
-BBL_ISA ?= rv64ia
-ABI ?= lp64
+BBL_ISA ?= rv64imafd
+ABI ?= lp64d
 
 saveterm := $(shell stty -g)
 
